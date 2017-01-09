@@ -1,0 +1,256 @@
+function SWEP:makemahcmodel()
+if (CLIENT) then
+self.CModel = ClientsideModel("models/weapons/c_models/c_boxing_gloves/c_boxing_gloves.mdl")
+local vm = self.Owner:GetViewModel()
+self.CModel:SetPos(vm:GetPos())
+self.CModel:SetAngles(vm:GetAngles())
+self.CModel:AddEffects(EF_BONEMERGE)
+self.CModel:SetSkin(2)
+self.CModel:SetNoDraw(true)
+self.CModel:SetParent(vm)
+end
+end
+
+function SWEP:ViewModelDrawn()
+if (CLIENT) then
+if not self.CModel then self:makemahcmodel() end
+if self.CModel then self.CModel:DrawModel() end
+end
+end
+
+
+function SWEP:Melee(ent)
+
+	self.DoMelee = nil
+	local tr = {}
+	tr.start = self.Owner:GetShootPos()
+	tr.endpos = self.Owner:GetShootPos() + ( self.Owner:GetAimVector() * 40 )
+	tr.filter = self.Owner
+	tr.mask = MASK_SHOT
+	local trace = util.TraceLine( tr )
+
+	if ( trace.Hit ) then
+			bullet = {}
+			bullet.Num    = 1
+			bullet.Src    = self.Owner:GetShootPos()
+			bullet.Dir    = self.Owner:GetAimVector()
+			bullet.Spread = Vector(0, 0, 0)
+			bullet.Tracer = 0
+			bullet.Force  = 16
+			if self.Weapon:GetNWBool("Critical") then
+			bullet.Damage = 155
+			trace.Entity:EmitSound("TFPlayer.CritHit")
+			if SERVER then
+			if self.Owner:WaterLevel() < 3 then
+			trace.Entity:Ignite(10,20)
+			end
+			end
+			self.Weapon:EmitSound("weapons/boxing_gloves_hit_crit"..math.random(1,2)..".wav")
+			else
+			if SERVER then
+			if self.Owner:WaterLevel() < 3 then
+			trace.Entity:Ignite(5,15)
+			end
+			end
+			self.Weapon:EmitSound("weapons/boxing_gloves_hit"..math.random(1,4)..".wav")
+			bullet.Damage = 25
+			end
+			self.Owner:FireBullets(bullet) 
+	end
+			self.Weapon:SetNWBool("Critical", false)
+end
+
+if (SERVER) then
+	AddCSLuaFile("shared.lua")
+	SWEP.HoldType		= "melee"
+end
+
+if (CLIENT) then
+	SWEP.Category 			= "Team Fortress 2 Custom"
+	SWEP.PrintName			= "P.B.G."	
+	SWEP.Slot				= 2
+	SWEP.SlotPos			= 1
+	SWEP.DrawSecondaryAmmo = false
+	SWEP.DrawAmmo		= false
+	SWEP.Type =  "Boxing Gloves"
+	SWEP.Stats =  "On Hit: Burn for 5 seconds unless in water"
+	SWEP.Stats2 = ""
+	SWEP.Stats3 = ""
+	SWEP.Stats4 = ""
+	SWEP.Stats5 = ""
+	SWEP.Stats6 = ""
+	SWEP.Stats7 = ""
+	SWEP.Stats8 = ""
+	SWEP.Stats9 = ""
+	SWEP.Stats10 = "-20% Damage done"
+	SWEP.Stats11 = ""
+	SWEP.Stats12 = ""
+	SWEP.Stats13 = ""
+	SWEP.Stats14 = ""
+	SWEP.Stats15 = ""
+	SWEP.Stats16 = ""
+	SWEP.Description = "P.B.G. Stands for 'Powerful Burning Gloves'."
+end
+
+SWEP.Base 				= "tf2custom_base"
+SWEP.ViewModelFlip		= false
+
+SWEP.Spawnable 			= true
+SWEP.AdminSpawnable 	= true
+
+SWEP.ViewModel			= "models/weapons/c_models/c_heavy_arms.mdl"
+SWEP.WorldModel			= "models/weapons/c_models/c_boxing_gloves/c_boxing_gloves.mdl"
+SWEP.ShowWorldModel = false
+
+SWEP.Primary.Delay			= .8
+SWEP.Primary.Automatic		= true
+SWEP.Primary.Ammo			= "none"
+SWEP.PTime = 0
+
+SWEP.Secondary.ClipSize	= -1
+SWEP.Secondary.DefaultClip 	= 1
+SWEP.Secondary.Automatic 	= true
+SWEP.Secondary.Ammo 		= "none"
+
+SWEP.Inspect = false
+
+function SWEP:DrawWorldModel()
+
+local hand, offset, rotate
+
+if not IsValid(self.Owner) then
+self:DrawModel()
+return
+end
+self:SetSkin(2)
+
+self:SetWeaponHoldType("revolver")
+hand = self.Owner:GetAttachment(self.Owner:LookupAttachment("anim_attachment_rh"))
+
+offset = hand.Ang:Right() * 0.9 + hand.Ang:Forward() * 1 - hand.Ang:Up() * -2
+
+hand.Ang:RotateAroundAxis(hand.Ang:Right(), 7)
+hand.Ang:RotateAroundAxis(hand.Ang:Forward(), 0)
+hand.Ang:RotateAroundAxis(hand.Ang:Up(), 0)
+
+self:SetRenderOrigin(hand.Pos + offset)
+self:SetRenderAngles(hand.Ang)
+
+self:DrawModel()
+if (CLIENT) then
+end
+end
+
+/*---------------------------------------------------------
+PrimaryAttack
+---------------------------------------------------------*/
+function SWEP:PrimaryAttack()
+self:Holster2()
+	local CritMath = math.random(0,5)
+	if SERVER then
+	self.InspectEnd = CurTime() + self.Primary.Delay
+	self.Inspecting = false
+	self.Caninspect = false
+	end
+	if CritMath == 3 then
+	self.Weapon:SetNWBool("Critical", true)
+	end
+	if self.Weapon:GetNWBool("Critical") then
+	self.Owner:GetViewModel():SetSequence(self.Owner:GetViewModel():LookupSequence("bg_swing_crit"))
+	self.Weapon:EmitSound("weapons/fist_swing_crit.wav")
+	else
+	self.Owner:GetViewModel():SetSequence(self.Owner:GetViewModel():LookupSequence("bg_swing_left"))
+	self.Weapon:EmitSound("weapons/boxing_gloves_swing"..math.random(1,2)..".wav")
+	end
+	self.Owner:SetAnimation(PLAYER_ATTACK1)
+	self.DoMelee = CurTime() + 0.22
+	self.Weapon:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
+	self.Weapon:SetNextSecondaryFire(CurTime() + self.Primary.Delay)
+	self.Idle = CurTime() + .78
+	
+	if ((game.SinglePlayer() and SERVER) or CLIENT) then
+		self.Weapon:SetNetworkedFloat("LastShootTime", CurTime())
+	end
+end
+
+function SWEP:SecondaryAttack()
+	local CritMath = math.random(0,5)
+	if CritMath == 3 then
+	self.Weapon:SetNWBool("Critical", true)
+	end
+	if self.Weapon:GetNWBool("Critical") then
+	self.Owner:GetViewModel():SetSequence(self.Owner:GetViewModel():LookupSequence("bg_swing_crit"))
+	self.Weapon:EmitSound("weapons/fist_swing_crit.wav")
+	else
+	self.Owner:GetViewModel():SetSequence(self.Owner:GetViewModel():LookupSequence("bg_swing_right"))
+	self.Weapon:EmitSound("weapons/boxing_gloves_swing"..math.random(1,2)..".wav")
+	end
+	self.Owner:SetAnimation(PLAYER_ATTACK1)
+	self.DoMelee = CurTime() + .22
+	self.Weapon:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
+	self.Weapon:SetNextSecondaryFire(CurTime() + self.Primary.Delay)
+	self.Idle = CurTime() + .78
+
+	if ((game.SinglePlayer() and SERVER) or CLIENT) then
+		self.Weapon:SetNetworkedFloat("LastShootTime", CurTime())
+	end
+end
+
+/*---------------------------------------------------------
+Deploy
+---------------------------------------------------------*/
+function SWEP:Deploy()
+	self.PTime = CurTime() + 0.5
+	self.Owner:GetViewModel():SetPlaybackRate(1)
+	self.Weapon:SetNWBool("Critical",false)
+	self.DoMelee = nil
+	self.Owner:GetViewModel():SetSequence(self.Owner:GetViewModel():LookupSequence("bg_draw"))
+	self.Idle = CurTime() + self.Owner:GetViewModel():SequenceDuration()
+	self.Weapon:SetNextPrimaryFire(CurTime() + 1)
+	return true
+end
+
+function SWEP:Holster(gun)
+if !self:IsValid() or (gun and !gun:IsValid()) then self = nil return false end
+self.DoMelee = nil
+self.PTime = nil
+return true
+end
+
+/*---------------------------------------------------------
+Reload
+---------------------------------------------------------*/
+function SWEP:Reload()
+end
+
+/*---------------------------------------------------------
+Think
+---------------------------------------------------------*/
+function SWEP:Think()
+if self.Idle and CurTime()>=self.Idle then
+self.Idle = nil
+self.Owner:GetViewModel():SetSequence(self.Owner:GetViewModel():LookupSequence("bg_idle"))
+end
+if self.DoMelee and CurTime()>=self.DoMelee then
+self.DoMelee = nil
+self:Melee()
+end
+if self.PTime then
+if self.Owner:WaterLevel() >= 3 then return true end
+if CurTime()>=self.PTime then
+ParticleEffectAttach( "burninggibs", PATTACH_POINT_FOLLOW, self.Owner:GetViewModel(), self.Owner:GetViewModel():LookupAttachment("vm_weapon_bone_1"))
+ParticleEffectAttach( "burninggibs", PATTACH_POINT_FOLLOW, self.Owner:GetViewModel(), self.Owner:GetViewModel():LookupAttachment("vm_weapon_bone_1_L"))
+self.PTime = CurTime() + 3
+end
+end
+end
+
+/*---------------------------------------------------------
+CanPrimaryAttack
+---------------------------------------------------------*/
+function SWEP:CanPrimaryAttack()
+end
+
+function SWEP:Initialize()
+game.AddParticles( "particles/burningplayer.pcf" )
+end
